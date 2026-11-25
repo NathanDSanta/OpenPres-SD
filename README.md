@@ -1,8 +1,9 @@
 # OpenPres for Stream Deck
 
-> This branch (`streamdeck/develop`) holds only the Stream Deck plugin. The OpenPres app is
-> on `develop`; each OpenPres release packs the plugin from the newest `streamdeck/develop`
-> and attaches it to the release.
+> One of the OpenPres repositories: the server is [OpenPres](https://github.com/NathanDSanta/OpenPres),
+> the Manager [OpenPres-M](https://github.com/NathanDSanta/OpenPres-M). The plugin is released
+> here, on its own ([releases](https://github.com/NathanDSanta/OpenPres-SD/releases)), and the
+> OpenPres Server installer can install it for you.
 
 Control OpenPres from an Elgato Stream Deck, like ProPresenter's Stream Deck plugin: the
 plugin talks to OpenPres's network API (the same one the iPad remote uses), and the keys
@@ -32,10 +33,11 @@ reached the keys turn grey; a press then shows a warning triangle.
 
 ## Install
 
-1. Get the plugin: `OpenPres-X.Y.Z-StreamDeck-Plugin.streamDeckPlugin` from the
-   [latest release](https://github.com/NathanDSanta/OpenPres/releases/latest), or the
-   *openpres-streamdeck-plugin* file of a "Stream Deck plugin checks" run on this branch
-   (GitHub zips it, so unzip the download first), or build it yourself (see below).
+1. Get the plugin: the OpenPres Server installer offers to install it, or take
+   `OpenPres-StreamDeck-Plugin-X.Y.Z.streamDeckPlugin` from the
+   [latest release](https://github.com/NathanDSanta/OpenPres-SD/releases/latest), or the
+   *openpres-streamdeck-plugin* file of a "Checks" run (GitHub zips it, so unzip the download
+   first), or build it yourself (see below).
 2. **Elgato Stream Deck (Windows, macOS):** double-click the file.
    **OpenDeck (Linux):** install [Node.js](https://nodejs.org) 20.5 or newer (`node` must be
    on the PATH), then in OpenDeck open *Plugins* → *Install from file* and pick the file.
@@ -44,10 +46,11 @@ reached the keys turn grey; a press then shows a warning triangle.
 
 ### Updates
 
-The plugin looks for a newer version when it starts and once a day: every OpenPres release
-has one ready to install. When there is one, the settings panel of every OpenPres key says so,
-with a **Download** button; open the downloaded file to install it over this one. A plugin
-built by hand doesn't look.
+The plugin looks for a newer version among this repository's releases when it starts and once
+a day: stable releases, and betas too when the server follows the beta program (Settings →
+General). When there is one, the settings panel of every OpenPres key says so, with a
+**Download** button; open the downloaded file to install it over this one. A plugin built by
+hand doesn't look.
 
 ### Connecting
 
@@ -84,7 +87,7 @@ restarts the plugin on every change.
 
 ### Branches and pull requests
 
-Work on a branch named `streamdeck/feature/…`, `streamdeck/fix/…`, `streamdeck/docs/…`,
-`streamdeck/chore/…` or `streamdeck/ci/…`, and open the pull request into
-`streamdeck/develop` with a title like `feat: …` or `fix: …`. The checks (type-check,
-tests, Elgato's validation and the packed plugin) run on every pull request.
+Work on a branch named `feature/…`, `fix/…`, `docs/…`, `chore/…` or `ci/…`, and open the
+pull request into `develop` with a title like `feat: …` or `fix: …`. The checks (type-check,
+tests, Elgato's validation and the packed plugin) run on every pull request. Betas and stable
+releases: [docs/RELEASING.md](docs/RELEASING.md).

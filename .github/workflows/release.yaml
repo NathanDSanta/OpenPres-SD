@@ -1,0 +1,138 @@
+# Publishes a release (docs/RELEASING.md). The same in every OpenPres repository; only the
+# build job is this repository's own.
+#   stable  X.Y.Z when main gets something: /release on Telegram (develop into main, Y+1) or
+#           /hotfix (a hotfix pull request, Z+1). After a hotfix, main goes back into develop
+#           and a beta follows straight away, so betas have the fix too.
+#   beta    X.Y.Z.A from develop, when beta.yaml says it's time (a pre-release on GitHub).
+# A major release (X+1): run this workflow by hand on main with "major", only when Nathan asks.
+name: Release
+
+on:
+  push:
+    branches: [ main ]
+  workflow_call:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "On main: major makes a major release (X+1.0.0), only when Nathan asks for one"
+        type: choice
+        options: [ auto, major ]
+        default: auto
+
+env:
+  PRODUCT: "OpenPres Stream Deck plugin"
+  FIRST_VERSION: "0.6.0"
+
+jobs:
+  plan:
+    name: Plan the release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.plan.outputs.version }}
+      name: ${{ steps.plan.outputs.name }}
+      tag: ${{ steps.plan.outputs.tag }}
+      semver: ${{ steps.plan.outputs.semver }}
+      code: ${{ steps.plan.outputs.code }}
+      beta: ${{ steps.plan.outputs.beta }}
+      hotfix: ${{ steps.plan.outputs.hotfix }}
+      notes: ${{ steps.plan.outputs.notes }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      # Stable from main, beta from develop (beta.yaml already decided that one is due).
+      - name: Version and notes
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MAIN_REF: origin/main
+          BUMP: ${{ inputs.bump == 'major' && 'major' || '' }}
+          NOW: "true"
+        run: node scripts/release/plan.mjs ${{ github.ref_name == 'main' && 'stable' || 'beta' }}
+
+      - name: Summary
+        env:
+          NAME: ${{ steps.plan.outputs.name }}
+        run: echo "${NAME:-Nothing to release.}" >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    name: Pack the plugin
+    needs: plan
+    if: needs.plan.outputs.version != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: 'npm'
+
+      # With the release's version (X.Y.Z.0, or X.Y.Z.A for a beta: Stream Deck versions have
+      # four parts), so the plugin can tell when a newer one is out.
+      - name: Pack
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+          TAG: ${{ needs.plan.outputs.tag }}
+        run: |
+          node -e 'const f="com.nathandsanta.openpres.sdPlugin/manifest.json", fs=require("fs"), m=JSON.parse(fs.readFileSync(f, "utf8")), v=process.env.VERSION.split("."); while (v.length < 4) v.push("0"); m.Version=v.join("."); fs.writeFileSync(f, JSON.stringify(m, null, "\t")+"\n")'
+          npm ci
+          npm run pack
+          mkdir release
+          cp dist/com.nathandsanta.openpres.streamDeckPlugin "release/OpenPres-StreamDeck-Plugin-${TAG#v}.streamDeckPlugin"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-files
+          path: release/
+
+  publish:
+    name: Publish
+    needs: [ plan, build ]
+    if: needs.plan.outputs.version != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.plan.outputs.tag }}
+      NAME: ${{ needs.plan.outputs.name }}
+      BETA: ${{ needs.plan.outputs.beta }}
+      NOTES: ${{ needs.plan.outputs.notes }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-files
+          path: release
+
+      - name: Publish on GitHub
+        run: |
+          (cd release && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt)
+          {
+            if [ "$BETA" = "true" ]; then echo "A **beta**: for the servers following the beta program (Settings → System)."; echo; fi
+            printf '%s\n' "$NOTES"
+          } > notes.md
+          flags=()
+          if [ "$BETA" = "true" ]; then flags=(--prerelease --latest=false); fi
+          gh release create "$TAG" release/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "$PRODUCT $NAME" --notes-file notes.md "${flags[@]}"
+          echo "Published **$PRODUCT $NAME**." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Bring the hotfix into develop, and a beta with it
+        if: needs.plan.outputs.hotfix == 'true'
+        run: |
+          if ! gh api -X POST "repos/$GITHUB_REPOSITORY/merges" -f base=develop -f head=main -f commit_message="Merge branch 'main' into develop (hotfix $NAME)" > /dev/null; then
+            echo "::error::Couldn't merge main into develop (a conflict?). Merge it by hand, then run the Beta workflow with 'now', so betas get the fix."
+            exit 1
+          fi
+          gh workflow run beta.yaml --repo "$GITHUB_REPOSITORY" --ref develop -f now=true
+          echo "Merged main into develop; a beta with the fix is on its way." >> "$GITHUB_STEP_SUMMARY"
