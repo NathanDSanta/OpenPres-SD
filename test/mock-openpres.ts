@@ -48,9 +48,17 @@ export class MockOpenPres {
 	port = 0;
 	password: string;
 
+	/** Whether the server follows the beta program (/health). */
+	betaProgram = false;
+
 	constructor(password = "") {
 		this.password = password;
 		this.server = createServer((req, res) => void this.handle(req, res));
+	}
+
+	/** Closes the plugin's event stream, as a restarting server would: it connects again. */
+	dropClients() {
+		this.server.closeAllConnections();
 	}
 
 	async start(port = 0): Promise<this> {
@@ -91,14 +99,16 @@ export class MockOpenPres {
 		const s = this.state;
 		const route = `${req.method} ${url.pathname.replace(/^\/api/, "")}`;
 
-		if (route === "GET /health") return json(200, { status: "ok", version: "9.9.9" });
-		// Standing in for GitHub's newest release (OPENPRES_UPDATE_URL).
-		if (route === "GET /releases/latest")
-			return json(200, {
-				tag_name: "v0.8.0",
-				html_url: "https://github.com/NathanDSanta/OpenPres/releases/tag/v0.8.0",
-				assets: [{ name: "OpenPres-0.8.0-StreamDeck-Plugin.streamDeckPlugin", browser_download_url: "https://example.test/OpenPres-0.8.0-StreamDeck-Plugin.streamDeckPlugin" }],
-			});
+		if (route === "GET /health") return json(200, { status: "ok", version: "9.9.9", beta_program: this.betaProgram });
+		// Standing in for GitHub's releases of the plugin (OPENPRES_UPDATE_URL), newest first.
+		if (route === "GET /releases") {
+			const release = (tag: string, prerelease: boolean, file: string) => ({ tag_name: tag, prerelease, html_url: `https://github.com/NathanDSanta/OpenPres-SD/releases/tag/${tag}`, assets: [{ name: file, browser_download_url: `https://example.test/${file}` }] });
+			return json(200, [
+				release("v0.8.0.2-beta", true, "OpenPres-StreamDeck-Plugin-0.8.0.2-beta.streamDeckPlugin"),
+				release("v0.8.0", false, "OpenPres-StreamDeck-Plugin-0.8.0.streamDeckPlugin"),
+				release("v0.7.0.4-beta", true, "OpenPres-StreamDeck-Plugin-0.7.0.4-beta.streamDeckPlugin"),
+			]);
+		}
 		if (route === "POST /auth/login") {
 			if (body?.password !== this.password) return json(401, { error: "wrong password" });
 			return json(200, { ok: true }, { "set-cookie": `openpres_session=${this.token}; HttpOnly; Path=/` });
