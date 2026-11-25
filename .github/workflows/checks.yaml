@@ -1,13 +1,12 @@
-# Checks for the Stream Deck plugin (this branch holds only the plugin; the app is on develop).
-# They run on pull requests into streamdeck/develop and after each merge. Each OpenPres
-# release packs the plugin from the newest streamdeck/develop.
-name: Stream Deck plugin checks
+# Checks for the Stream Deck plugin, on pull requests and after each merge. A beta needs them
+# green (beta.yaml).
+name: Checks
 
 on:
   pull_request:
-    branches: [ streamdeck/develop ]
+    branches: [ develop, main ]
   push:
-    branches: [ streamdeck/develop ]
+    branches: [ develop, main ]
   workflow_dispatch:
 
 # A new push to the same pull request cancels the checks still running for the old one.
@@ -34,6 +33,9 @@ jobs:
 
       - name: Type-check
         run: npm run typecheck
+
+      - name: Release scripts
+        run: node --test scripts/release/lib.test.mjs
 
       # Builds the plugin, then runs it with a fake Stream Deck app and a stand-in OpenPres.
       - name: Build and test
