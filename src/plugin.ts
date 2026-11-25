@@ -32,17 +32,18 @@ store.onUpdate(() => {
 		lastStatus = line;
 		log.info(line);
 	}
+	updates.follow(store.betaProgram);
 	sendToInspector();
 });
 
-// ---- a newer plugin (each OpenPres release has one) ----
+// ---- a newer plugin (from this repository's releases; betas for the beta program) ----
 
 const updates = new UpdateCheck(streamDeck.info.plugin.version, () => {
 	const u = updates.info;
 	if (u.latest) log.info(`plugin ${u.latest} is available (this is ${u.current}): ${u.url}`);
 	else if (u.error) log.warn(`could not check for a newer plugin: ${u.error}`);
 	sendToInspector();
-});
+}, () => store.betaProgram);
 
 // ---- the settings panel (property inspector) ----
 

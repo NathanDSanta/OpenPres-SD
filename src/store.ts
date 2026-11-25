@@ -193,6 +193,8 @@ export class Store {
 	readonly client = new OpenPresClient();
 	connected = false;
 	version = "";
+	/** The server follows the beta program: betas of the plugin are offered too. */
+	betaProgram = false;
 	error = "";
 	snap: Snapshot = EMPTY;
 
@@ -280,8 +282,9 @@ export class Store {
 		let delay = 1000;
 		while (!signal.aborted) {
 			try {
-				const health = await this.client.get<{ version?: string }>("/health");
+				const health = await this.client.get<{ version?: string; beta_program?: boolean }>("/health");
 				this.version = health?.version ?? "";
+				this.betaProgram = health?.beta_program === true;
 				await this.refresh();
 				if (signal.aborted) return;
 				this.setConnected(true);

@@ -231,7 +231,7 @@ describe("a newer plugin", () => {
 
 	before(async () => {
 		openpres = await new MockOpenPres().start();
-		process.env.OPENPRES_UPDATE_URL = `http://127.0.0.1:${openpres.port}/releases/latest`;
+		process.env.OPENPRES_UPDATE_URL = `http://127.0.0.1:${openpres.port}/releases`;
 		// A release's plugin (one built by hand doesn't check).
 		deck = await new FakeStreamDeck({ port: openpres.port }).start("7.1.0", "0.7.0.0");
 	});
@@ -245,12 +245,21 @@ describe("a newer plugin", () => {
 		deck.appear("next", "upd1");
 		deck.send({ event: "propertyInspectorDidAppear", action: "com.nathandsanta.openpres.next", context: "upd1", device: "dev1" });
 		deck.send({ event: "sendToPlugin", action: "com.nathandsanta.openpres.next", context: "upd1", payload: { type: "hello" } });
+		// Stable only: the newest beta isn't offered.
 		const m = await deck.waitFor((x) => x.event === "sendToPropertyInspector" && !!x.payload?.update?.latest);
 		assert.equal(m.payload.update.current, "0.7.0");
 		assert.equal(m.payload.update.latest, "0.8.0");
 		deck.send({ event: "sendToPlugin", action: "com.nathandsanta.openpres.next", context: "upd1", payload: { type: "update" } });
 		const open = await deck.waitFor((x) => x.event === "openUrl");
-		assert.equal(open.payload.url, "https://example.test/OpenPres-0.8.0-StreamDeck-Plugin.streamDeckPlugin");
+		assert.equal(open.payload.url, "https://example.test/OpenPres-StreamDeck-Plugin-0.8.0.streamDeckPlugin");
+	});
+
+	test("with the beta program, the newest beta", async () => {
+		openpres.betaProgram = true;
+		// The plugin sees it when it connects again.
+		openpres.dropClients();
+		const m = await deck.waitFor((x) => x.event === "sendToPropertyInspector" && x.payload?.update?.latest === "0.8.0.2 beta", 15_000);
+		assert.equal(m.payload.update.beta, true);
 	});
 });
 
